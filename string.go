@@ -1,11 +1,8 @@
 package jsonast
 
 import (
-	"errors"
 	"fmt"
 )
-
-var errNotAString = errors.New("not a string")
 
 // String is a string JSON value
 type String interface {
@@ -14,17 +11,20 @@ type String interface {
 }
 
 type stringImpl struct {
-	Value
+	valueImpl
 	str string
-}
-
-func (s stringImpl) String() string {
-	return s.str
 }
 
 func newString(str string) String {
 	return stringImpl{
-		Value: valueImpl{isString: true},
-		str:   str,
+		str: str,
 	}
+}
+
+func (s stringImpl) IsString() bool {
+	return true
+}
+
+func (s stringImpl) String() string {
+	return s.str
 }

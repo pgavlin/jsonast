@@ -1,48 +1,44 @@
 package jsonast
 
-import (
-	"errors"
-	"fmt"
-)
-
-var (
-	errNotAnObject = errors.New("not an object")
-)
-
 // Object is the object JSON value
 type Object interface {
 	Value
-	Fields() []ObjectPair
-	ValueAt(key string) (Value, error)
+
+	Attributes() []Attribute
+
+	At(key string) (Value, bool)
 }
 
-// ObjectPair represents a single key-value pair in an object
-type ObjectPair struct {
+// Attribute represents a single key-value pair in an object
+type Attribute struct {
 	Key   string
 	Value Value
 }
 
 type objectImpl struct {
-	Value
-	pairs []ObjectPair
+	valueImpl
+	attributes []Attribute
 }
 
-func newObject(pairs []ObjectPair) Object {
+func newObject(attributes []Attribute) Object {
 	return objectImpl{
-		Value: valueImpl{isObject: true},
-		pairs: pairs,
+		attributes: attributes,
 	}
 }
 
-func (o objectImpl) Fields() []ObjectPair {
-	return o.pairs
+func (o objectImpl) IsObject() bool {
+	return true
 }
 
-func (o objectImpl) ValueAt(key string) (Value, error) {
-	for _, pair := range o.pairs {
-		if pair.Key == key {
-			return pair.Value, nil
+func (o objectImpl) Attributes() []Attribute {
+	return o.attributes
+}
+
+func (o objectImpl) At(key string) (Value, bool) {
+	for _, attr := range o.attributes {
+		if attr.Key == key {
+			return attr.Value, true
 		}
 	}
-	return nil, fmt.Errorf("no such key %s", key)
+	return nil, false
 }

@@ -1,45 +1,81 @@
 package jsonast
 
-type state struct {
-	inObj  bool
-	inArr  bool
-	inStr  bool
-	curVal Value
-	aggVal Value
-}
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+)
 
-func newState() state {
-	return state{}
-}
-
-func (s state) addToken(tkn token) error {
-	// char := tkn.char
-	switch tkn {
-	case quoteToken:
-		if !s.inStr {
-			// start a new string
-		} else {
-			// end a string
-		}
-	}
-	return nil
-}
-
-func (s state) value() Value {
-	// TODO
-	return nil
-}
-
-// Parse parses jsonStr from JSON to a Value. Returns nil and an appropriate
-// error if jsonStr was an invalid JSON string
-func Parse(jsonStr string) (Value, error) {
-	tokensCh := make(chan token)
-	go tokenize(jsonStr, tokensCh)
-	st := newState()
-	for token := range tokensCh {
-		if err := st.addToken(token); err != nil {
+func parseArray(decoder *json.Decoder) (Value, error) {
+	var elements []Value
+	for decoder.More() {
+		v, err := parseValue(decoder)
+		if err != nil {
 			return nil, err
 		}
+		elements = append(elements, v)
 	}
-	return st.value(), nil
+	_, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	return newArray(elements), nil
+}
+
+func parseObject(decoder *json.Decoder) (Value, error) {
+	var attributes []Attribute
+	for decoder.More() {
+		k, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		v, err := parseValue(decoder)
+		if err != nil {
+			return nil, err
+		}
+		attributes = append(attributes, Attribute{
+			Key:   k.(string),
+			Value: v,
+		})
+	}
+	_, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	return newObject(attributes), nil
+}
+
+func parseValue(decoder *json.Decoder) (Value, error) {
+	tok, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+
+	switch tok := tok.(type) {
+	case json.Delim:
+		switch tok {
+		case '[':
+			return parseArray(decoder)
+		case '{':
+			return parseObject(decoder)
+		default:
+			panic(fmt.Errorf("unexpected delimiter '%v'", tok))
+		}
+	case bool:
+		return newBool(tok), nil
+	case float64:
+		return newNumber(tok), nil
+	case string:
+		return newString(tok), nil
+	case nil:
+		return Null, nil
+	default:
+		panic(fmt.Errorf("unexpected token %v of type %T", tok, tok))
+	}
+
+}
+
+// Parse parses JSON from a Reader into a Value.
+func Parse(r io.Reader) (Value, error) {
+	return parseValue(json.NewDecoder(r))
 }
